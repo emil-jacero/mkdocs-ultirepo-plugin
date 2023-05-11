@@ -32,27 +32,3 @@ class IncludeParserPercent(ParserInterface):
         """Implements the parser using % as pattern"""
         print(f"IncludeParserPercent executed - {self.resolver} - {self.pattern}")
         return ["IncludeParserPercent"], [{"alias": "Derp", "docs_dir": "derpio/derp"}]
-
-class ParserManager:
-    def __init__(self):
-        self._parsers = {}
-
-    def register_parser(self, name, resolver, pattern, parser) -> None:
-        if not issubclass(parser, ParserInterface):
-            raise TypeError("Parser must implement ParserInterface")
-        self._parsers[name] = ( parser, resolver, pattern )
-    
-    def get_all_patterns(self) -> List[str]:
-        result = []
-        for parser, resolver, pattern in self._parsers.values():
-            result.append(pattern)
-        return result
-
-    def execute_parser(self, name, *args, **kwargs)  -> Tuple[Union[str, List, Dict], List[dict]]:
-        parser, resolver, pattern = self._parsers.get(name)
-        if parser:
-            parser_instance = parser(resolver, pattern)
-            result = parser_instance.execute(*args, **kwargs)
-            return result
-        else:
-            raise KeyError(f"Parser '{name}' not found")

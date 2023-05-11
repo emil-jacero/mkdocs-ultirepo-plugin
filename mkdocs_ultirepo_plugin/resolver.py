@@ -21,7 +21,7 @@ class Resolver:
     
     def strip_prefix(self, string: str) -> str:
         result = string.split(" ", 1)
-        return result[0]
+        return result[1]
     
     def _include_pattern_exists(self, string: str) -> Tuple[bool, ParserInterface]:
         result = False, ""

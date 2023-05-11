@@ -1,0 +1,10 @@
+site_name: Repo 1 - How-to
+repo_name: "emil-jacero/repo1"
+repo_url: "https://github.com/emil-jacero/repo1"
+edit_uri: "edit/main/"
+
+nav:
+  - Intro: index.md
+  - Advanced Topics:
+      - Part 1: advanced-topics/part-1.md
+      - Part 2: advanced-topics/part-2.md
