@@ -6,37 +6,29 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from mkdocs.utils import warning_filter
 
-from .include_parsers import IncludeParserBang, IncludeParserPercent, ParserManager
+from .include_parsers import ParserInterface
 
 log = logging.getLogger(__name__)
 log.addFilter(warning_filter)
 
-
 class Resolver:
-    def __init__(self, resolve_depth: int = 0, resolve_max_depth: int = 1) -> None:
+    def __init__(self, resolve_depth: int = 0, resolve_max_depth: int = 1, parsers: List[Tuple] = None) -> None:
         self.resolve_depth = resolve_depth
         self.resolve_max_depth = resolve_max_depth
+        self.parsers = parsers
         self.parent_dir: Path = None
         self.include_parent_dir: Path = None
-
-    def _build_parsers(self, resolver):
-        try:
-            parser_manager = ParserManager()
-            parser_manager.register_parser("parser_bang", resolver, "!include", IncludeParserBang)
-            parser_manager.register_parser("parser_percent", resolver, "%include", IncludeParserPercent)
-            return parser_manager
-        except Exception as e:
-            log.error(f"Error while getting parsers: {e}")
-            return None
     
-    def _include_pattern_exists(self, parser_manager: ParserManager, string: str) -> Tuple[bool, str]:
+    def strip_prefix(self, string: str) -> str:
+        result = string.split(" ", 1)
+        return result[0]
+    
+    def _include_pattern_exists(self, string: str) -> Tuple[bool, ParserInterface]:
         result = False, ""
 
-        patterns = parser_manager.get_all_patterns()
-
-        for pattern in patterns:
+        for pattern, parser in self.parsers:
             if string.startswith(pattern):
-                result = True, pattern
+                result = True, parser
 
         return result
 
@@ -76,28 +68,21 @@ class Resolver:
 
     def _resolve_string(self, string: str) -> Tuple[List, List[dict]]:
 
-        try:
-            resolve_depth = self.resolve_depth + 1
-            resolver = Resolver(resolve_depth=resolve_depth, resolve_max_depth=self.resolve_max_depth)
-            parser_manager = self._build_parsers(resolver)
-        except Exception as e:
-            log.error(f"Error while initiating resolver: {e}")
-            return [], []
-        
-        include_exists, include_pattern = self._include_pattern_exists(parser_manager, string)
+        pattern_exists, parser = self._include_pattern_exists(string)
 
-        if not include_exists:
+        if not pattern_exists:
             if not self.include_parent_dir is None:  # Handle the infinite resolver. For example nested !includes
                 result = str(self.include_parent_dir / Path(string))
             else:
                 result = string
 
             return [result], []
-        else: 
-            if include_pattern == "!include":
-                resolved_nav, resolved_paths = parser_manager.execute_parser("parser_bang")
-            elif include_pattern == "%include":
-                resolved_nav, resolved_paths = parser_manager.execute_parser("parser_percent")
+        else:
+            resolve_depth = self.resolve_depth + 1
+            resolver = Resolver(resolve_depth=resolve_depth, resolve_max_depth=self.resolve_max_depth)
+            stripped_string = self.strip_prefix(string)
+            include = parser(resolver, self.parent_dir, stripped_string)
+            resolved_nav, resolved_paths = include.execute()
 
             return resolved_nav, resolved_paths
 
