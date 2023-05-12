@@ -1,0 +1,3 @@
+
+class InvalidNavPathError(Exception):
+    pass

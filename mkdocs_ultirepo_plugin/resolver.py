@@ -12,19 +12,22 @@ log = logging.getLogger(__name__)
 log.addFilter(warning_filter)
 
 class Resolver:
-    def __init__(self, resolve_depth: int = 0, resolve_max_depth: int = 1, parsers: List[Tuple] = None) -> None:
+    def __init__(self, resolve_depth: int = 0, resolve_max_depth: int = 1) -> None:
         self.resolve_depth = resolve_depth
         self.resolve_max_depth = resolve_max_depth
-        self.parsers = parsers
+        self.parsers = None
         self.parent_dir: Path = None
         self.include_parent_dir: Path = None
+
+    def set_parsers(self, parsers):
+        self.parsers = parsers
     
     def strip_prefix(self, string: str) -> str:
         result = string.split(" ", 1)
         return result[1]
     
     def _include_pattern_exists(self, string: str) -> Tuple[bool, ParserInterface]:
-        result = False, ""
+        result = False, None
 
         for pattern, parser in self.parsers:
             if string.startswith(pattern):
@@ -46,25 +49,31 @@ class Resolver:
         return result
 
     def _resolve_dict(self, item: Dict) -> Tuple[List, List[dict]]:
-        key, value = list(item.items())[0]
+        # key, value = list(item.items())[0]
+        key, = item.keys()
+        value, = item.values()
 
         # Parent dir is used later to place the files in the correct parent directory when merging
         self.parent_dir = self._get_parent_dir(key)
 
-        resolved_value, paths = self._resolve(value)
+        resolved_value, additional_info = self._resolve(value)
+        # TODO: Check if this code can be remove by implementing the parser fully
         if len(resolved_value) <= 1:
-            return [{key: resolved_value[0]}], paths
+            return [{key: resolved_value[0]}], additional_info
         else:
-            return [{key: resolved_value}], paths
+            return [{key: resolved_value}], additional_info
+        # return [{key: resolved_value}], additional_info
 
     def _resolve_list(self, items: List) -> Tuple[List, List[dict]]:
         resolved_items = []
-        resolved_paths = []
+        additional_info = []
 
         for item in items:
-            resolved_item, paths = self._resolve(item)
+            resolved_item, info = self._resolve(item)
             resolved_items.extend(resolved_item)
-            resolved_paths.extend(paths)
+            additional_info.extend(info)
+        
+        return resolved_items, additional_info
 
     def _resolve_string(self, string: str) -> Tuple[List, List[dict]]:
 
@@ -81,10 +90,13 @@ class Resolver:
             resolve_depth = self.resolve_depth + 1
             resolver = Resolver(resolve_depth=resolve_depth, resolve_max_depth=self.resolve_max_depth)
             stripped_string = self.strip_prefix(string)
-            include = parser(resolver, self.parent_dir, stripped_string)
-            resolved_nav, resolved_paths = include.execute()
+            try:
+                include = parser(resolver, self.parent_dir, stripped_string)
+                resolved_nav, additional_info = include.execute(parsers=self.parsers)
 
-            return resolved_nav, resolved_paths
+                return resolved_nav, additional_info
+            except Exception as e:
+                raise Exception
 
     def _resolve(self, value: Union[str, List, Dict]) -> Tuple[Union[str, List, Dict], List[dict]]:
 
@@ -98,19 +110,19 @@ class Resolver:
             return [], []
 
     def resolve(self, nav, include_parent_dir: Path = None) -> Tuple[Union[str, List, Dict], List[dict]]:
+        resolved_nav = []
+        additional_info = []
+
         self.include_parent_dir = include_parent_dir
         if self.resolve_depth > self.resolve_max_depth:
             log.info(
                 f"Reached maximum depth ({self.resolve_max_depth}). Stopping further processing of include directives."
             )
-            return nav
-
-        resolved_nav = []
-        resolved_paths = []
+            return nav, additional_info
 
         for item in nav:
-            resolved_item, resolved_path = self._resolve(item)
+            resolved_item, a_info = self._resolve(item)
             resolved_nav.extend(resolved_item)
-            resolved_paths.extend(resolved_path)
+            additional_info.extend(a_info)
 
-        return resolved_nav, resolved_paths
+        return resolved_nav, additional_info

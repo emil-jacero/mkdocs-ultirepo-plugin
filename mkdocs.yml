@@ -1,11 +1,13 @@
+---
 site_name: Dogs API
 
 nav:
-        - "!include https://github.com/emil-jacero/repo2.git?ref=main&nav_path=docs/how-to-guides/nav.yml"
+- How-To Guides:
+    - "!include https://github.com/emil-jacero/repo2.git?ref=main&nav_path=docs/how-to-guides/nav.yml"
 
 plugins:
-        - search
-        - ultirepo
+- search
+- ultirepo
 
 theme:
-        name: material
+    name: material
