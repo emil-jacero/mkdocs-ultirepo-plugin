@@ -128,5 +128,5 @@ dmypy.json
 
 # Custom
 git_clones
-temp
+temp/*
 test.py
