@@ -1,7 +1,7 @@
 import logging
 import sys
 from copy import deepcopy
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Dict, List, Optional, Tuple, Union
 
 from mkdocs.utils import warning_filter
@@ -16,8 +16,8 @@ class Resolver:
         self.resolve_depth = resolve_depth
         self.resolve_max_depth = resolve_max_depth
         self.parsers = None
-        self.parent_dir: Path = None
-        self.include_parent_dir: Path = None
+        self.parent: Path = None
+        self.include_parent: Path = None
 
     def set_parsers(self, parsers):
         self.parsers = parsers
@@ -25,6 +25,13 @@ class Resolver:
     def strip_prefix(self, string: str) -> str:
         result = string.split(" ", 1)
         return result[1]
+    
+    def _get_prefix(self, path_str: str) -> str:
+        path = Path(path_str)
+        if path.parent != Path('.'):
+            return str(path.parent)
+        else:
+            return None
     
     def _include_pattern_exists(self, string: str) -> Tuple[bool, ParserInterface]:
         result = False, None
@@ -35,53 +42,77 @@ class Resolver:
 
         return result
 
-    def _get_parent_dir(self, string: str) -> Path:
-        transformed_string = string.lower().replace(" ", "-")
+    def _nicelify_string(self, key: str) -> str:
+        string = key.lower().replace(" ", "-")
+        return string
 
-        # Handle nested parent dirs. For example when resolving nested includes
-        if self.parent_dir:
-            parent = deepcopy(self.parent_dir)
-            child = Path(transformed_string)
-            result = parent / child
-        else:
-            result = Path(transformed_string)
+    def _set_parent(self, item):
+        if isinstance(item, dict):
+            key, = item.keys()
+            value, = item.values()
 
-        return result
+            nice_string = self._nicelify_string(key)
+            child = Path(nice_string)
+            
+            if not self.parent is None:
+                path_parent = self.parent.parent
+                if not isinstance(value, str):
+                    print(f"### NOT STRING: {key} - {value} - {self.parent}")
+                    if not nice_string == self.parent.name and not path_parent == path_parent.parent:
+                        self.parent = path_parent / child
+                elif isinstance(value, str):
+                    print(f"### IS STRING: {key} - {value}")
+                else:
+                    print(f"### ELSE: {key} - {value}")
+            else:
+                self.parent = Path(nice_string)
+    
+    def _step_back_parent(self):
+        self.parent = self.parent.parent
 
-    def _resolve_dict(self, item: Dict) -> Tuple[List, List[dict]]:
-        # key, value = list(item.items())[0]
+    def _reset_parent(self):
+        self.parent = None
+
+    def _resolve_dict(self, item: Dict, depth: int) -> Tuple[List, List[dict]]:
+
         key, = item.keys()
         value, = item.values()
 
         # Parent dir is used later to place the files in the correct parent directory when merging
-        self.parent_dir = self._get_parent_dir(key)
+        # self.parent = self._find_parent_dir(key, value, depth)
 
-        resolved_value, additional_info = self._resolve(value)
+        depth = depth + 1
+        resolved_value, additional_info = self._resolve(value, depth)
         # TODO: Check if this code can be remove by implementing the parser fully
         if len(resolved_value) <= 1:
             return [{key: resolved_value[0]}], additional_info
         else:
             return [{key: resolved_value}], additional_info
-        # return [{key: resolved_value}], additional_info
 
-    def _resolve_list(self, items: List) -> Tuple[List, List[dict]]:
+    def _resolve_list(self, items: List, depth: int) -> Tuple[List, List[dict]]:
+
         resolved_items = []
         additional_info = []
 
+        depth = depth + 1
         for item in items:
-            resolved_item, info = self._resolve(item)
+            resolved_item, info = self._resolve(item, depth)
             resolved_items.extend(resolved_item)
             additional_info.extend(info)
+            self._step_back_parent  # Remove last path in self.parent
+        
         
         return resolved_items, additional_info
 
     def _resolve_string(self, string: str) -> Tuple[List, List[dict]]:
 
         pattern_exists, parser = self._include_pattern_exists(string)
+        string_path_prefix = self._get_prefix(string)
+
 
         if not pattern_exists:
-            if not self.include_parent_dir is None:  # Handle the infinite resolver. For example nested !includes
-                result = str(self.include_parent_dir / Path(string))
+            if not string_path_prefix == str(self.include_parent) and not self.include_parent is None:
+                result = str(self.include_parent / Path(string))
             else:
                 result = string
 
@@ -91,29 +122,31 @@ class Resolver:
             resolver = Resolver(resolve_depth=resolve_depth, resolve_max_depth=self.resolve_max_depth)
             stripped_string = self.strip_prefix(string)
             try:
-                include = parser(resolver, self.parent_dir, stripped_string)
+                include = parser(resolver, self.parent, stripped_string)
                 resolved_nav, additional_info = include.execute(parsers=self.parsers)
 
                 return resolved_nav, additional_info
             except Exception as e:
-                raise Exception
+                raise Exception(e)
 
-    def _resolve(self, value: Union[str, List, Dict]) -> Tuple[Union[str, List, Dict], List[dict]]:
+    def _resolve(self, value: Union[str, List, Dict], depth: int) -> Tuple[Union[str, List, Dict], List[dict]]:
+        self._set_parent(value)
 
         if isinstance(value, dict):
-            return self._resolve_dict(value)
+            return self._resolve_dict(value, depth)
         elif isinstance(value, list):
-            return self._resolve_list(value)
+            return self._resolve_list(value, depth)
         elif isinstance(value, str):
             return self._resolve_string(value)
         else:
             return [], []
 
-    def resolve(self, nav, include_parent_dir: Path = None) -> Tuple[Union[str, List, Dict], List[dict]]:
+    def resolve(self, nav, parent: Path = None) -> Tuple[Union[str, List, Dict], List[dict]]:
+        depth = 0
         resolved_nav = []
         additional_info = []
 
-        self.include_parent_dir = include_parent_dir
+        self.include_parent = parent
         if self.resolve_depth > self.resolve_max_depth:
             log.info(
                 f"Reached maximum depth ({self.resolve_max_depth}). Stopping further processing of include directives."
@@ -121,7 +154,8 @@ class Resolver:
             return nav, additional_info
 
         for item in nav:
-            resolved_item, a_info = self._resolve(item)
+
+            resolved_item, a_info = self._resolve(item, depth)
             resolved_nav.extend(resolved_item)
             additional_info.extend(a_info)
 

@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='mkdocs-ultirepo-plugin',
-    version='0.1.0',
+    version='0.1.1',
     description='Plugin for adding the ultimate multiple repo support in Mkdocs.',
     long_description="""This plugin is built to be easily extended with different parsers called 'include'.
     These 'include' parsers can have advanced behavior like pulling a git repo and extracting the relevant documentation from it to merge with the parent.

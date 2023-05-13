@@ -9,6 +9,7 @@ from mkdocs.exceptions import ConfigurationError
 from mkdocs.livereload import LiveReloadServer
 from mkdocs.plugins import BasePlugin
 
+from .include_parsers import IncludeParserBang, IncludeParserPercent
 from .merger import Merger
 from .resolver import Resolver
 
@@ -29,6 +30,7 @@ class UltirepoPlugin(BasePlugin):
 
     config_scheme: tuple[tuple[str, MkType]] = (
         ("resolve_max_depth", MkType(int, default=1)),
+        ("docs_destination_dir", MkType(str, default="/home/emil/devel/public/mkdocs-ultirepo-plugin/temp"))
     )
 
     def __init__(self) -> None:
@@ -36,6 +38,8 @@ class UltirepoPlugin(BasePlugin):
 
     def on_config(self, config: MkDocsConfig) -> Config | None:
         print("ON_CONFIG")
+        resolve_max_depth = 1
+        docs_destination_dir = "/home/emil/devel/public/mkdocs-ultirepo-plugin/temp"
         if not config.get("nav"):
             return config
 
@@ -43,26 +47,27 @@ class UltirepoPlugin(BasePlugin):
         self.original_docs_dir = config['docs_dir']
 
         # Parse the nav and handle all import statements
-        resolve_max_depth = 2
-        parser = Resolver(resolve_max_depth=config.resolve_max_depth)
-        resolved_nav, resolved_paths = parser.resolve(config['nav'])
+        parsers = [("!include", IncludeParserBang)]
+        resolver = Resolver(resolve_max_depth=resolve_max_depth)
+        resolver.set_parsers(parsers)
+        resolved_nav, additional_info = resolver.resolve(config['nav'])
 
         config["nav"] = resolved_nav
         print(config["nav"])
 
         # Generate a new "docs" directory
-        # merger = Merger(config=config, merged_docs_dir="/home/emil/devel/public/mkdocs-ultirepo-plugin/temp")
-        merger = Merger(config=config)
-        merged, temp_docs_dir = merger.merge(resolved_paths=resolved_paths)
-        print("Resolver")
+        merger = Merger(config=config,merged_docs_dir=docs_destination_dir)
+        merged, temp_docs_dir  = merger.merge(additional_info=additional_info)
+
+        print("### Resolver")
         print(yaml.dump(resolved_nav, sort_keys=False, indent=2))
-        print(resolved_paths)
+        print(additional_info)
         print("")
         print("")
-        print("Merger")
+        print("### Merger")
         print(json.dumps(merged, sort_keys=False, indent=2))
 
-        # Update the docs_dir with our temporary one!
+        # Update the docs_dir with our temporary one
         config["docs_dir"] = temp_docs_dir
 
         return config

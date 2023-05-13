@@ -15,10 +15,10 @@ log = logging.getLogger(__name__)
 # log.addFilter(warning_filter)
 
 class ParserInterface(ABC):
-    def __init__(self, resolver, parent_dir, string) -> None:
+    def __init__(self, resolver, parent, string) -> None:
         super().__init__()
         self.resolver = resolver
-        self.parent_dir = parent_dir
+        self.parent = parent
         self.string = string
 
     @abstractmethod
@@ -26,36 +26,32 @@ class ParserInterface(ABC):
         pass
 
 class IncludeParserBang(ParserInterface):
-    def __init__(self, resolver, parent_dir, string) -> None:
-        super().__init__(resolver, parent_dir, string)
+    def __init__(self, resolver, parent, string) -> None:
+        super().__init__(resolver, parent, string)
         self.clone_dir = None
         self.nav_files = ["nav.yml", "nav.yaml"]
 
-    # def _get_path_from_nav_file(self, path: str) -> str:
-    #     """
-    #     Get the directory path containing the nav file.
+    def _get_docs_sub_dir(self, path: str, docs_dir: str) -> str:
+        docs_sub_dir = ""
+        for suffix in self.nav_files:
+            s = f"/{suffix}"
+            if path.endswith(s):
+                docs_sub_dir = path.rsplit(s, 1)[0]
+                docs_sub_dir = docs_sub_dir.replace(f"{docs_dir}/", "", 1)
+        return docs_sub_dir
 
-    #     :param path: The path of the nav file.
-    #     :return: The directory path containing the nav file.
-    #     """
-    #     docs_dir = ""
-    #     for suffix in self.nav_files:
-    #         s = f"/{suffix}"
-    #         if path.endswith(s):
-    #             docs_dir = path.rsplit(s, 1)[0]
-    #     return docs_dir
-
-    def _get_orig_docs_dir(self, nav_config: Dict, abs_path: str, nav_path: str) -> str:
-        if "docs_dir" in nav_config:
-            docs_dir = os.path.join(
-                os.path.dirname(abs_path), nav_config["docs_dir"]
-            )
+    def _get_docs_dir(self, nav_config: Dict, abs_path: str, nav_path: str) -> Tuple[str, str]:
+        orig_docs_dir = None
+        orig_docs_sub_dir = None
+        if nav_config.get("docs_dir"):
+            docs_dir = nav_config.get("docs_dir")
         elif isinstance(self, IncludeParserBang):
-            doc = nav_path.split("/", 1)[0]
-            docs_dir = f"{abs_path}/{doc}"
+            docs_dir = nav_path.split("/", 1)[0]
         else:
-            docs_dir = os.path.join(os.path.dirname(abs_path), "docs")
-        return docs_dir
+            docs_dir = "docs"
+        orig_docs_dir = os.path.join(abs_path, docs_dir)
+        orig_docs_sub_dir = self._get_docs_sub_dir(nav_path, docs_dir)
+        return orig_docs_dir, orig_docs_sub_dir
 
     def _clone_git_repo(self, git_url: str, git_ref: str) -> str:
         """
@@ -160,7 +156,7 @@ class IncludeParserBang(ParserInterface):
 
     def _resolve_nav_file(self, nav_config: Dict, parsers: ParserInterface) -> Tuple[List, List[dict]]:
         self.resolver.set_parsers(parsers)
-        resolved_nav, additional_info = self.resolver.resolve(nav=nav_config["nav"], include_parent_dir=self.parent_dir)
+        resolved_nav, additional_info = self.resolver.resolve(nav=nav_config["nav"], parent=self.parent)
         return resolved_nav, additional_info
 
     def execute(self, *args, **kwargs) -> Tuple[List, List[dict]]:
@@ -188,11 +184,11 @@ class IncludeParserBang(ParserInterface):
         # Resolve nav
         resolved_nav, additional_info = self._resolve_nav_file(nav_config, kwargs.get("parsers", None))
 
-        # Get original docs dir
-        orig_docs_dir = self._get_orig_docs_dir(nav_config, git_repo_path, nav_path)
+        # Get original document directory and sub-directory where the nav file is located
+        orig_docs_dir, orig_docs_sub_dir = self._get_docs_dir(nav_config, git_repo_path, nav_path)
 
         # Add additional info
-        additional_info.append({"orig_docs_dir": orig_docs_dir})
+        additional_info.append({"orig_docs_dir": orig_docs_dir, "orig_docs_sub_dir": orig_docs_sub_dir})
 
         return resolved_nav, additional_info
 
