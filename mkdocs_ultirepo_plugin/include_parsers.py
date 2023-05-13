@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, urlparse
 
 import yaml
+from mkdocs.utils import warning_filter
 
 from .exceptions import InvalidNavPathError
 from .git_clone import GitClone

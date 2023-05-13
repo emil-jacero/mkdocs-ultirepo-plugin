@@ -66,12 +66,6 @@ class Resolver:
                     print(f"### ELSE: {key} - {value}")
             else:
                 self.parent = Path(nice_string)
-    
-    def _step_back_parent(self):
-        self.parent = self.parent.parent
-
-    def _reset_parent(self):
-        self.parent = None
 
     def _resolve_dict(self, item: Dict, depth: int) -> Tuple[List, List[dict]]:
 
@@ -99,8 +93,6 @@ class Resolver:
             resolved_item, info = self._resolve(item, depth)
             resolved_items.extend(resolved_item)
             additional_info.extend(info)
-            self._step_back_parent  # Remove last path in self.parent
-        
         
         return resolved_items, additional_info
 
