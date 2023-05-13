@@ -12,7 +12,7 @@ from .exceptions import InvalidNavPathError
 from .git_clone import GitClone
 
 log = logging.getLogger(__name__)
-# log.addFilter(warning_filter)
+log.addFilter(warning_filter)
 
 class ParserInterface(ABC):
     def __init__(self, resolver, parent, string) -> None:
