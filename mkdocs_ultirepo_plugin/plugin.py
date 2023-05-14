@@ -21,8 +21,6 @@ class UltirepoPlugin(BasePlugin):
     This plugin defines the following event hooks:
 
     - `on_config`
-    - `on_post_build`
-    - `on_serve`
 
     Check the [Developing Plugins](https://www.mkdocs.org/user-guide/plugins/#developing-plugins) page of `mkdocs`
     for more information about its plugin system.
