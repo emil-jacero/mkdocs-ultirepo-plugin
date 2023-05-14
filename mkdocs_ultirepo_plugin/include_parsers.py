@@ -77,11 +77,10 @@ class IncludeParserBang(ParserInterface):
 
         match = re.match(git_url_pattern, value)
 
-        if match:
-            return True
-        else:
+        if not match:
             log.error(f"Not a valid git URL: {value}", file=sys.stderr)
-            return False
+            raise ValueError(f"Not a valid Git URL: {value}")
+        return True
 
     def _parse_query_params(self, string: str) -> Tuple[str, str, str]:
         """
@@ -116,23 +115,24 @@ class IncludeParserBang(ParserInterface):
 
         # Check if nav_path starts with '/'
         if nav_path.startswith("/"):
-            raise InvalidNavPathError("nav_path should not begin with '/'.")
+            raise InvalidNavPathError("nav_path cannot not begin with '/'.")
 
         # Check if nav_path already contains 'nav.yml' or 'nav.yaml'
         nav_basename = os.path.basename(nav_path)
-        if not nav_basename in self.nav_files:
-            # Attempt to find the nav files
-            for file_name in self.nav_files:
-                temp_nav_file_path = os.path.join(abs_path, nav_path, file_name)
+        if nav_basename in self.nav_files:
+            nav_file_path = os.path.join(abs_path, nav_path)
+            log.debug(f"Found nav file in nav_path. Path: {nav_file_path}")
+        else:
+            # Attempt to find the nav files in the directory
+            for nav_file in self.nav_files:
+                temp_nav_file_path = os.path.join(abs_path, nav_path, nav_file)
                 if os.path.exists(temp_nav_file_path):
                     nav_file_path = temp_nav_file_path
+                    log.debug(f"Found nav file in nav_path. Path: {nav_file_path}")
                     break
-            else:
-                raise InvalidNavPathError(
-                    "Neither 'nav.yml' nor 'nav.yaml' found in the specified path"
-                )
-        else:
-            nav_file_path = os.path.join(abs_path, nav_path)
+                else:
+                    log.error("Functionality for recursively parsing through a directory is not yet implemented")
+                    raise InvalidNavPathError("Neither 'nav.yml' nor 'nav.yaml' found in the specified path.")
 
         return nav_file_path
 
@@ -155,6 +155,11 @@ class IncludeParserBang(ParserInterface):
 
         return nav_config
 
+    def _generate_nav(self, git_repo_path: str, subpath: str) -> Tuple[Dict[str, Union[str, List, Dict]], str]:
+        # TODO: Implement recursive nav parser
+        full_path = os.path.join(git_repo_path, subpath)
+        pass
+
     def _resolve_nav_file(self, nav_config: Dict, parsers: ParserInterface) -> Tuple[List, List[dict]]:
         self.resolver.set_parsers(parsers)
         resolved_nav, additional_info = self.resolver.resolve(nav=nav_config["nav"], parent=self.parent)
@@ -167,8 +172,7 @@ class IncludeParserBang(ParserInterface):
         self.clone_dir = kwargs.get("clone_dir", os.path.join(os.getcwd(), "git_clones"))
 
         # Validate URL
-        if not self._validate_git_url(self.string):
-            raise ValueError(f"Not a valid Git URL: {self.string}")
+        self._validate_git_url(self.string)
 
         # Parse URL
         git_url, git_ref, nav_path = self._parse_query_params(self.string)
@@ -180,7 +184,10 @@ class IncludeParserBang(ParserInterface):
         nav_file_path = self._get_nav_file_path(git_repo_path, nav_path)
 
         # Load nav file
-        nav_config = self._load_nav_file(nav_file_path)
+        if nav_file_path is None:
+            nav_config = self._generate_nav(git_repo_path, nav_path)
+        else:
+            nav_config = self._load_nav_file(nav_file_path)
 
         # Resolve nav
         resolved_nav, additional_info = self._resolve_nav_file(nav_config, kwargs.get("parsers", None))

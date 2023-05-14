@@ -30,11 +30,12 @@ class UltirepoPlugin(BasePlugin):
 
     config_scheme: tuple[tuple[str, MkType]] = (
         ("resolve_max_depth", MkType(int, default=1)),
-        ("docs_destination_dir", MkType(str, default="/home/emil/devel/public/mkdocs-ultirepo-plugin/temp"))
+        ("docs_destination_dir", MkType(str, default=None))
     )
 
     def __init__(self) -> None:
         self.original_docs_dir = None
+        self.parsers = [("!include", IncludeParserBang)]
 
     def on_config(self, config: MkDocsConfig) -> Config | None:
         print("ON_CONFIG")
@@ -47,25 +48,25 @@ class UltirepoPlugin(BasePlugin):
         self.original_docs_dir = config['docs_dir']
 
         # Parse the nav and handle all import statements
-        parsers = [("!include", IncludeParserBang)]
+
         resolver = Resolver(resolve_max_depth=resolve_max_depth)
-        resolver.set_parsers(parsers)
+        resolver.set_parsers(self.parsers)
         resolved_nav, additional_info = resolver.resolve(config['nav'])
 
         config["nav"] = resolved_nav
         print(config["nav"])
 
         # Generate a new "docs" directory
-        merger = Merger(config=config,merged_docs_dir=docs_destination_dir)
+        merger = Merger(config=config)
         merged, temp_docs_dir  = merger.merge(additional_info=additional_info)
 
-        print("### Resolver")
-        print(yaml.dump(resolved_nav, sort_keys=False, indent=2))
-        print(additional_info)
-        print("")
-        print("")
-        print("### Merger")
-        print(json.dumps(merged, sort_keys=False, indent=2))
+        # print("### Resolver")
+        # print(yaml.dump(resolved_nav, sort_keys=False, indent=2))
+        # print(additional_info)
+        # print("")
+        # print("")
+        # print("### Merger")
+        # print(json.dumps(merged, sort_keys=False, indent=2))
 
         # Update the docs_dir with our temporary one
         config["docs_dir"] = temp_docs_dir
