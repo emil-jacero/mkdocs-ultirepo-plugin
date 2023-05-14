@@ -57,13 +57,12 @@ class Resolver:
             if not self.parent is None:
                 path_parent = self.parent.parent
                 if not isinstance(value, str):
-                    print(f"### NOT STRING: {key} - {value} - {self.parent}")
                     if not nice_string == self.parent.name and not path_parent == path_parent.parent:
                         self.parent = path_parent / child
                 elif isinstance(value, str):
-                    print(f"### IS STRING: {key} - {value}")
+                    pass
                 else:
-                    print(f"### ELSE: {key} - {value}")
+                    pass
             else:
                 self.parent = Path(nice_string)
 

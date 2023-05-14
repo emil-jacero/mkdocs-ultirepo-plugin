@@ -38,9 +38,7 @@ class UltirepoPlugin(BasePlugin):
         self.parsers = [("!include", IncludeParserBang)]
 
     def on_config(self, config: MkDocsConfig) -> Config | None:
-        print("ON_CONFIG")
         resolve_max_depth = 1
-        docs_destination_dir = "/home/emil/devel/public/mkdocs-ultirepo-plugin/temp"
         if not config.get("nav"):
             return config
 
