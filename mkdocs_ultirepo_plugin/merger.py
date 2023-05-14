@@ -30,7 +30,7 @@ class Merger:
         source_path = orig_docs_dir / orig_docs_sub_dir
         for item in source_path.rglob("*"):
             destination_path = Path(self.merged_docs_dir) / source_path.name / item.relative_to(source_path)
-            print(self.merged_docs_dir, source_path.name, item.relative_to(source_path))
+            # print(self.merged_docs_dir, source_path.name, item.relative_to(source_path))
 
             if item.is_file():
                 # Skip the nav.yaml file
