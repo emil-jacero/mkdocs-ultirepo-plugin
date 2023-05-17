@@ -1,12 +1,12 @@
 ---
-site_name: Dogs API
+site_name: Ultirepo
 
 nav:
 - index.md
-- How-To Guides:
-    - how-to-guides/index.md
-    - "!include https://github.com/emil-jacero/repo2.git?ref=main&nav_path=docs/how-to-guides/nav.yml"
-- System-Documentation: system-documentation/index.md
+- How-To:
+    - how-to/index.md
+- Examples:
+    - "!include https://github.com/emil-jacero/repo1.git?ref=main&nav_path=docs/include_bang/nav.yml"
 
 plugins:
 - search
