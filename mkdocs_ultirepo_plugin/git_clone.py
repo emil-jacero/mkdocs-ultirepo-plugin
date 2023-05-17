@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import sys
-import tempfile
+from tempfile import mkdtemp
 
 import git
 from mkdocs.utils import warning_filter
@@ -13,25 +13,25 @@ log.addFilter(warning_filter)
 
 
 class GitClone:
-    def __init__(self, target_dir="./git_clones"):
+    def __init__(self, target_dir=None):
         """
         Initialize GitClone object.
 
         :param target_dir: The target directory where the git repositories will be cloned.
         """
-        self.tempdir = tempfile.mkdtemp()
-        self.target_dir = target_dir
+        self.target_dir = target_dir or mkdtemp()
 
-        if not os.path.exists(target_dir):
-            try:
-                os.makedirs(target_dir)
-            except OSError as e:
-                if e.errno != errno.EEXIST:
-                    log.error(
-                        f"Error creating target directory '{target_dir}': {e}",
-                        file=sys.stderr)
-                    self.cleanup()
-                    raise SystemExit(1)
+        if not target_dir is None:
+            if not os.path.exists(target_dir):
+                try:
+                    os.makedirs(target_dir)
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        log.error(
+                            f"Error creating target directory '{target_dir}': {e}",
+                            file=sys.stderr)
+                        self.cleanup()
+                        raise SystemExit(1)
 
     def _is_git_repo(self, path):
         """

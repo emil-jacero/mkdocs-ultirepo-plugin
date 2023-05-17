@@ -62,7 +62,7 @@ class IncludeParserBang(ParserInterface):
         :param git_ref: The git reference to checkout after cloning.
         :return: The path to the cloned git repository.
         """
-        git_clone = GitClone(target_dir=self.clone_dir)
+        git_clone = GitClone()
         git_repo_path = git_clone.clone(git_url, git_ref)
         return git_repo_path
 

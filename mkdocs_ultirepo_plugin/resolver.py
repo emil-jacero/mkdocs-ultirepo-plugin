@@ -66,30 +66,24 @@ class Resolver:
             else:
                 self.parent = Path(nice_string)
 
-    def _resolve_dict(self, item: Dict, depth: int) -> Tuple[List, List[dict]]:
+    def _resolve_dict(self, item: Dict) -> Tuple[List, List[dict]]:
 
         key, = item.keys()
         value, = item.values()
 
-        # Parent dir is used later to place the files in the correct parent directory when merging
-        # self.parent = self._find_parent_dir(key, value, depth)
-
-        depth = depth + 1
-        resolved_value, additional_info = self._resolve(value, depth)
-        # TODO: Check if this code can be remove by implementing the parser fully
+        resolved_value, additional_info = self._resolve(value)
         if len(resolved_value) <= 1:
             return [{key: resolved_value[0]}], additional_info
         else:
             return [{key: resolved_value}], additional_info
 
-    def _resolve_list(self, items: List, depth: int) -> Tuple[List, List[dict]]:
+    def _resolve_list(self, items: List) -> Tuple[List, List[dict]]:
 
         resolved_items = []
         additional_info = []
 
-        depth = depth + 1
         for item in items:
-            resolved_item, info = self._resolve(item, depth)
+            resolved_item, info = self._resolve(item)
             resolved_items.extend(resolved_item)
             additional_info.extend(info)
         
@@ -120,20 +114,19 @@ class Resolver:
             except Exception as e:
                 raise Exception(e)
 
-    def _resolve(self, value: Union[str, List, Dict], depth: int) -> Tuple[Union[str, List, Dict], List[dict]]:
+    def _resolve(self, value: Union[str, List, Dict]) -> Tuple[Union[str, List, Dict], List[dict]]:
         self._set_parent(value)
 
         if isinstance(value, dict):
-            return self._resolve_dict(value, depth)
+            return self._resolve_dict(value)
         elif isinstance(value, list):
-            return self._resolve_list(value, depth)
+            return self._resolve_list(value)
         elif isinstance(value, str):
             return self._resolve_string(value)
         else:
             return [], []
 
     def resolve(self, nav, parent: Path = None) -> Tuple[Union[str, List, Dict], List[dict]]:
-        depth = 0
         resolved_nav = []
         additional_info = []
 
@@ -145,8 +138,7 @@ class Resolver:
             return nav, additional_info
 
         for item in nav:
-
-            resolved_item, a_info = self._resolve(item, depth)
+            resolved_item, a_info = self._resolve(item)
             resolved_nav.extend(resolved_item)
             additional_info.extend(a_info)
 
